@@ -21,6 +21,19 @@ def preprocess_image(image_path):
 
     return reader.readtext("paragon_clean.jpg")
    
+def normalize_ocr_string(s: str) -> str:
+    replacements = {
+        "|": "1", "¦": "1", "^": "1", "I": "1", "l": "1",
+        "O": "0", "o": "0",
+        "S": "5", "s": "5",
+        "Z": "2", "z": "2",
+        "B": "8",
+        "G": "6", "g": "9",
+        "€": "C", "¢": "c"
+    }
+    for wrong, correct in replacements.items():
+        s = s.replace(wrong, correct)
+    return s
     
 def list_products(ocr_result):
     buffer = []
@@ -34,11 +47,12 @@ def list_products(ocr_result):
         if not scanBegin:
             continue
         buffer.append(element[-2])
-        if (re.findall("[0-9][A-G]$", element[-2])):
+        if (re.findall("[0-9][A-G]$", element[-2], flags=re.IGNORECASE)):
             products.append(buffer)
             buffer = []
 
     return products
+
 
 
 #print(products)
@@ -46,14 +60,14 @@ def standarize_products(products_raw):
     products = []
     for prod in products_raw:
         name = " ".join(prod[:-1])
-        price = re.findall(r"\d+,\d{2}", prod[-1])
+        price = re.findall(r"\d+\s*,\s*\d{2}", normalize_ocr_string(prod[-1]))
         if price:
             price = price[-1]
+            price = float(price.replace(",", ".").replace(" ", ""))
         else:
             price = "BRAK CENY"
-        price = float(price.replace(",", "."))
         if re.findall("Rabat", name):
-            products[-1][price] = price
+            products[-1]["price"] = price
             continue
         
         products.append({"name" : name, "price" : price})
@@ -62,6 +76,7 @@ def standarize_products(products_raw):
     print(products)
 
 if __name__ == "__main__":
-    ocr_result = preprocess_image("paragon.jpg")
+    ocr_result = preprocess_image("paragon.png")
+    #print(ocr_result)
     products = list_products(ocr_result)
     standarize_products(products)
